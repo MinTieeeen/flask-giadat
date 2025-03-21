@@ -1,3 +1,3 @@
-bind = "0.0.0.0:10000"
 workers = 2
-timeout = 120 
+timeout = 120
+# Bỏ cấu hình bind để Render tự xác định port 

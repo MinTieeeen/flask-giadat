@@ -1,0 +1,20 @@
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+flask-giadat/
+
+# Logs
+*.log 
