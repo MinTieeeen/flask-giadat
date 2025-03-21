@@ -822,6 +822,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
+    // Hiển thị loading overlay
+    showLoading();
+
     // Xóa marker cũ nếu có
     if (clickMarker) {
         map.removeLayer(clickMarker);
@@ -851,14 +854,17 @@ document.addEventListener("DOMContentLoaded", function () {
             try {
                 const addressData = JSON.parse(data.contents);
                 updateLocationInfo({lat: lat, lng: lng}, addressData);
+                hideLoading(); // Ẩn loading overlay sau khi hoàn tất
             } catch (error) {
                 console.error("Error parsing address data:", error);
                 updateLocationInfo({lat: lat, lng: lng});
+                hideLoading(); // Ẩn loading overlay khi có lỗi
             }
         })
         .catch(error => {
             console.error("Error fetching address:", error);
             updateLocationInfo({lat: lat, lng: lng});
+            hideLoading(); // Ẩn loading overlay khi có lỗi
         });
   }
 
@@ -931,14 +937,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // 🟢 Ẩn bảng tra cứu khi có kết quả
   function hideSearchPanel() {
-    document.querySelector(".controls").style.display = "none";
-    document.getElementById("showSearchPanel").style.display = "block";
-  }
-
-  // 🟢 Hiện lại bảng tra cứu khi bấm nút
-  function showSearchPanel() {
-    document.querySelector(".controls").style.display = "block";
-    document.getElementById("showSearchPanel").style.display = "none";
+    // Chỉ ẩn panel tìm kiếm tích hợp
+    const searchPanel = document.querySelector('.integrated-search');
+    if (searchPanel) {
+      searchPanel.classList.remove('active');
+    }
   }
 
   // Khởi tạo sự kiện cho bảng tìm kiếm tích hợp
@@ -959,23 +962,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
     
-    // Xử lý radio buttons cho loại tìm kiếm đường
-    const fullRoadRadio = document.getElementById('fullRoad');
-    const customRoadRadio = document.getElementById('customRoad');
+    // Xử lý phần còn lại
     const customFields = document.getElementById('customSearchFields');
     
-    if (fullRoadRadio && customRoadRadio && customFields) {
-      fullRoadRadio.addEventListener('change', function() {
-        if (this.checked) {
-          customFields.style.display = 'none';
-        }
-      });
-      
-      customRoadRadio.addEventListener('change', function() {
-        if (this.checked) {
-          customFields.style.display = 'block';
-        }
-      });
+    if (customFields) {
+      // Ẩn customFields mặc định vì không còn radio buttons
+      customFields.style.display = 'none';
     }
     
     // Ẩn/hiện bảng tìm kiếm
@@ -1044,33 +1036,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // 🟢 Sửa lại hàm searchByAddress để xử lý radio buttons
+  // Sửa lại hàm searchByAddress để hiển thị thông tin tĩnh thay vì popup
   async function searchByAddress() {
     const district = document.getElementById("districtSelect").value;
     const streetName = document.getElementById("searchBox").value.trim();
-    const isFullRoad = document.getElementById('fullRoad').checked;
-
-    // Nếu là tìm kiếm theo đoạn đường, lấy thêm thông tin đoạn
-    let startPoint = '';
-    let endPoint = '';
-    if (!isFullRoad) {
-      startPoint = document.getElementById('startPoint').value.trim();
-      endPoint = document.getElementById('endPoint').value.trim();
-      
-      if (!startPoint || !endPoint) {
-        alert('Vui lòng nhập điểm đầu và điểm cuối!');
-        return;
-      }
-    }
-
-    let priceHienHanh = "Không có dữ liệu";
-    let priceNhaNuoc = "Không có dữ liệu";
+    const isFullRoad = true; // Mặc định là tìm theo trọn đường
 
     // Kiểm tra input
     if (!district || !streetName) {
       alert("Vui lòng chọn quận và nhập tên đường!");
       return;
     }
+
+    // Hiển thị loading overlay trước khi tìm kiếm
+    showLoading();
 
     try {
       // Tìm tất cả các đoạn đường của tên đường đã chọn
@@ -1085,16 +1064,19 @@ document.addEventListener("DOMContentLoaded", function () {
       );
 
       if (!streetSegmentsHienHanh?.length && !streetSegmentsNhaNuoc?.length) {
+        hideLoading(); // Ẩn loading overlay khi không tìm thấy
         alert("Không tìm thấy thông tin đường này!");
         return;
       }
 
-      // Tạo popup content với tất cả các đoạn đường
-      let popupContent = `
-        <div class="price-popup">
-          <h6>${streetName}</h6>
-          <p><b>Quận:</b> ${district}</p>
-          <div class="segments-list">
+      // Định dạng HTML cho panel thông tin
+      let infoContent = `
+        <div class="location-header">
+            <strong>${streetName}</strong>
+            <button class="close-btn" onclick="toggleLocationInfo()">×</button>
+        </div>
+        <div><strong>Quận:</strong> ${district}</div>
+        <div class="street-segments">
       `;
 
       // Hàm định dạng giá tiền
@@ -1105,60 +1087,93 @@ document.addEventListener("DOMContentLoaded", function () {
         });
       }
 
-      // Sửa phần hiển thị giá trong popup
+      // Thêm thông tin các đoạn đường từ bảng hiện hành
       if (streetSegmentsHienHanh?.length) {
-        popupContent += `<h7>Giá hiện hành:</h7>`;
-        streetSegmentsHienHanh.forEach((segment) => {
+        streetSegmentsHienHanh.forEach((segment, index) => {
           const roadSegment = segment["ĐOẠN ĐƯỜNG"];
           const endSegment = segment["Unnamed: 3"] || "";
+          const formattedPrice = formatPrice(segment["GIÁ ĐẤT"]);
 
-          popupContent += `
-            <div class="segment-item" onclick="selectSegment(this)" 
-                 data-price="${formatPrice(segment["GIÁ ĐẤT"])}">
-              <p><b>Đoạn đường:</b></p>
-              ${
-                roadSegment.toLowerCase() === "trọn đường"
-                  ? `<p class="segment-details">Trọn đường</p>`
-                  : `<p class="segment-details">
-                      <span class="segment-start"><b>Điểm đầu:</b> ${roadSegment}</span><br>
-                      <span class="segment-end"><b>Điểm cuối:</b> ${endSegment}</span>
-                    </p>`
-              }
-              <p class="price-value"><b>Giá:</b> ${formatPrice(
-                segment["GIÁ ĐẤT"]
-              )} triệu đồng/m²</p>
-            </div>
-          `;
+          if (roadSegment.toLowerCase() === "trọn đường") {
+            infoContent += `
+              <div class="segment-section">
+                <div><strong>Giá:</strong> ${formattedPrice} triệu đồng/m²</div>
+              </div>
+            `;
+          } else {
+            infoContent += `
+              <div class="segment-section">
+                <div><strong>Đoạn đường:</strong></div>
+                <div class="segment-details">
+                  <div class="point-line">
+                    <span class="point-label">Điểm đầu:</span>
+                    <span class="point-value">${roadSegment}</span>
+                  </div>
+                  <div class="point-line">
+                    <span class="point-label">Điểm cuối:</span>
+                    <span class="point-value">${endSegment}</span>
+                  </div>
+                </div>
+                <div><strong>Giá:</strong> ${formattedPrice} triệu đồng/m²</div>
+              </div>
+            `;
+          }
+          
+          // Thêm dòng phân cách
+          if (index < streetSegmentsHienHanh.length - 1) {
+            infoContent += `<hr>`;
+          }
         });
       }
 
+      // Thêm các đoạn đường từ bảng nhà nước (nếu có)
       if (streetSegmentsNhaNuoc?.length) {
-        popupContent += `<h7>Giá nhà nước:</h7>`;
-        streetSegmentsNhaNuoc.forEach((segment) => {
+        infoContent += `<hr><div><strong>Giá nhà nước:</strong></div>`;
+        streetSegmentsNhaNuoc.forEach((segment, index) => {
           const roadSegment = segment["ĐOẠN ĐƯỜNG"];
           const endSegment = segment["Unnamed: 3"] || "";
+          const formattedPrice = formatPrice(segment["GIÁ ĐẤT"]);
 
-          popupContent += `
-            <div class="segment-item" onclick="selectSegment(this)"
-                 data-price="${formatPrice(segment["GIÁ ĐẤT"])}">
-              <p><b>Đoạn đường:</b></p>
-              ${
-                roadSegment.toLowerCase() === "trọn đường"
-                  ? `<p class="segment-details">Trọn đường</p>`
-                  : `<p class="segment-details">
-                      <span class="segment-start"><b>Điểm đầu:</b> ${roadSegment}</span><br>
-                      <span class="segment-end"><b>Điểm cuối:</b> ${endSegment}</span>
-                    </p>`
-              }
-              <p class="price-value"><b>Giá:</b> ${formatPrice(
-                segment["GIÁ ĐẤT"]
-              )} triệu đồng/m²</p>
-            </div>
-          `;
+          if (roadSegment.toLowerCase() === "trọn đường") {
+            infoContent += `
+              <div class="segment-section">
+                <div><strong>Giá:</strong> ${formattedPrice} triệu đồng/m²</div>
+              </div>
+            `;
+          } else {
+            infoContent += `
+              <div class="segment-section">
+                <div><strong>Đoạn đường:</strong></div>
+                <div class="segment-details">
+                  <div class="point-line">
+                    <span class="point-label">Điểm đầu:</span>
+                    <span class="point-value">${roadSegment}</span>
+                  </div>
+                  <div class="point-line">
+                    <span class="point-label">Điểm cuối:</span>
+                    <span class="point-value">${endSegment}</span>
+                  </div>
+                </div>
+                <div><strong>Giá:</strong> ${formattedPrice} triệu đồng/m²</div>
+              </div>
+            `;
+          }
+          
+          // Thêm dòng phân cách nếu không phải đoạn cuối cùng
+          if (index < streetSegmentsNhaNuoc.length - 1) {
+            infoContent += `<hr>`;
+          }
         });
       }
 
-      popupContent += `</div></div>`;
+      infoContent += `</div>`;
+
+      // Cập nhật nội dung cho panel thông tin
+      coordinateInfo.innerHTML = "";
+      streetInfo.innerHTML = infoContent;
+
+      // Hiển thị panel thông tin
+      locationInfo.classList.remove("d-none");
 
       // Tìm vị trí trên bản đồ
       const searchQuery = `${streetName}, ${district}, Hồ Chí Minh, Vietnam`;
@@ -1169,6 +1184,7 @@ document.addEventListener("DOMContentLoaded", function () {
       );
 
       if (!response.ok) {
+        hideLoading(); // Ẩn loading overlay khi có lỗi
         throw new Error("Không thể kết nối với dịch vụ bản đồ");
       }
 
@@ -1184,87 +1200,63 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Tạo marker mới
         marker = L.marker([lat, lon])
-          .addTo(map)
-          .bindPopup(popupContent, {
-            maxWidth: 300,
-            className: "custom-popup",
-          })
-          .openPopup();
+          .addTo(map);
 
         map.setView([lat, lon], 16);
         hideSearchPanel();
+        hideLoading(); // Ẩn loading overlay sau khi hoàn tất
       } else {
+        hideLoading(); // Ẩn loading overlay khi không tìm thấy vị trí
         throw new Error("Không tìm thấy vị trí trên bản đồ");
       }
     } catch (error) {
+      hideLoading(); // Ẩn loading overlay khi có lỗi
       console.error("Lỗi:", error);
       alert(`Lỗi khi tìm kiếm: ${error.message}`);
     }
   }
 
-  // Thêm function để xử lý khi click vào segment
-  window.selectSegment = function (element) {
-    // Lấy thông tin từ segment được chọn
-    const segmentDetails = element.querySelector(".segment-details");
-    const streetName = document.querySelector(".price-popup h6").textContent;
-    const district = document
-      .querySelector(".price-popup p b")
-      .nextSibling.textContent.trim();
-
-    // Highlight segment được chọn
-    const popup = document.querySelector(".leaflet-popup-content");
-    const segments = popup.querySelectorAll(".segment-item");
-    segments.forEach((seg) => seg.classList.remove("selected"));
-    element.classList.add("selected");
-
-    // Tìm marker tương ứng trong layer group markers
-    if (markerVisible && markers) {
-      let found = false;
-      markers.eachLayer(function (layer) {
-        if (layer instanceof L.Marker) {
-          // Kiểm tra xem đây có phải là marker xanh không
-          const icon = layer.getIcon();
-          const markerDiv = icon?.options?.html;
-
-          // Lấy thông tin đoạn đường từ element được click
-          const startPoint = element
-            .querySelector(".segment-start")
-            ?.textContent.replace("Điểm đầu:", "")
-            .trim();
-          const endPoint = element
-            .querySelector(".segment-end")
-            ?.textContent.replace("Điểm cuối:", "")
-            .trim();
-          const isTronDuong = segmentDetails.textContent.includes("Trọn đường");
-
-          // Nếu là marker xanh và thuộc về đường đang xem
-          if (markerDiv?.includes("marker-icon")) {
-            const markerPopup = layer.getPopup();
-            if (markerPopup) {
-              const content = markerPopup.getContent();
-              // Kiểm tra khớp tên đường và đoạn đường
-              if (
-                content.includes(streetName) &&
-                (isTronDuong
-                  ? content.includes("Trọn đường")
-                  : content.includes(startPoint) && content.includes(endPoint))
-              ) {
-                // Di chuyển map đến vị trí marker và mở popup
-                map.setView(layer.getLatLng(), 17);
-                layer.openPopup();
-                found = true;
-              }
-            }
-          }
-        }
-      });
-
-      // Thông báo nếu không tìm thấy marker
-      if (!found) {
-        console.log("Không tìm thấy marker cho đoạn đường này");
+  // Cũng thêm CSS nếu cần thiết
+  function addCustomStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      .location-info-panel {
+        max-height: 80vh;
+        overflow-y: auto;
       }
-    }
-  };
+      .street-segments {
+        margin-top: 10px;
+      }
+      .segment-section {
+        margin-bottom: 10px;
+      }
+      .segment-details {
+        margin-left: 10px;
+        margin-bottom: 5px;
+      }
+      .point-line {
+        display: flex;
+        margin-bottom: 3px;
+      }
+      .point-label {
+        font-weight: bold;
+        min-width: 80px;
+        color: #0275d8;
+      }
+      .point-value {
+        flex: 1;
+      }
+      hr {
+        margin: 10px 0;
+        border: 0;
+        border-top: 1px solid #eee;
+      }
+    `;
+    document.head.appendChild(styleElement);
+  }
+
+  // Gọi hàm thêm CSS khi trang tải
+  addCustomStyles();
 
   loadLandData();
   document
@@ -1273,9 +1265,6 @@ document.addEventListener("DOMContentLoaded", function () {
   document
     .getElementById("searchType")
     .addEventListener("change", toggleSearchMode);
-  document
-    .getElementById("showSearchPanel")
-    .addEventListener("click", showSearchPanel);
 
   // Thêm các hàm xử lý tìm kiếm
   function toggleSearchMenu() {
