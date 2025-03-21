@@ -560,11 +560,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function loadAndDisplayData() {
     showLoading();
     try {
-      displayLandPrices(dataHienHanh);
-      spatialIndex = buildSpatialIndex(dataHienHanh);
+      // Sử dụng landDataHienHanh nếu đã tải từ API/JSON, nếu không sử dụng dataHienHanh
+      const dataToDisplay = Object.keys(landDataHienHanh).length > 0 ? landDataHienHanh : dataHienHanh;
+      displayLandPrices(dataToDisplay);
+      spatialIndex = buildSpatialIndex(dataToDisplay);
+      console.log("Dữ liệu đã được hiển thị thành công");
       hideLoading();
     } catch (error) {
-      console.error("Lỗi khi tải dữ liệu:", error);
+      console.error("Lỗi khi hiển thị dữ liệu:", error);
       hideLoading();
     }
   }
@@ -905,17 +908,45 @@ document.addEventListener("DOMContentLoaded", function () {
   // 🟢 Tải dữ liệu JSON từ Flask API
   async function loadLandData() {
     try {
+      console.log("Đang tải dữ liệu từ API...");
+      
+      // Thử tải từ API endpoints trước
+      try {
+        const apiResponse1 = await fetch("/api/land-prices/current");
+        const apiResponse2 = await fetch("/api/land-prices/state");
+        
+        if (apiResponse1.ok && apiResponse2.ok) {
+          console.log("Tải dữ liệu từ API thành công");
+          landDataHienHanh = await apiResponse1.json();
+          landDataNhaNuoc = await apiResponse2.json();
+          return;
+        }
+      } catch (apiError) {
+        console.warn("Không thể tải dữ liệu từ API:", apiError);
+      }
+      
+      // Nếu API không thành công, thử tải từ file trực tiếp
+      console.log("Thử tải dữ liệu từ file JSON...");
       const response1 = await fetch("data/Bang_gia_dat.json");
-      const response2 = await fetch("data/Bang_gia_dat_nha_nuoc.json");
+      const response2 = await fetch("data/Bang_gia_dat_Nha_nuoc.json");
 
       if (!response1.ok || !response2.ok) {
-        throw new Error("Không thể tải dữ liệu!");
+        console.warn("Không thể tải dữ liệu từ file JSON, sử dụng dữ liệu mẫu");
+        // Sử dụng dữ liệu mẫu từ file JS
+        landDataHienHanh = dataHienHanh || {};
+        landDataNhaNuoc = dataNhaNuoc || {};
+        return;
       }
 
+      console.log("Tải dữ liệu từ file JSON thành công");
       landDataHienHanh = await response1.json();
       landDataNhaNuoc = await response2.json();
     } catch (error) {
-      alert(error.message);
+      console.error("Lỗi khi tải dữ liệu:", error);
+      // Sử dụng dữ liệu mẫu từ file JS
+      landDataHienHanh = dataHienHanh || {};
+      landDataNhaNuoc = dataNhaNuoc || {};
+      console.log("Sử dụng dữ liệu mẫu từ JS file");
     }
   }
 
@@ -1282,15 +1313,24 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Chạy khi trang web được tải
-  function init() {
+  async function init() {
     // Khởi tạo bảng tìm kiếm
     initSearchPanel();
     
-    // Tải dữ liệu khi trang được tải
-    loadAndDisplayData();
+    // Thêm logs để debug
+    console.log("Bắt đầu khởi tạo ứng dụng");
     
-    // Tải dữ liệu JSON từ Flask API
-    loadLandData();
+    try {
+      // Tải dữ liệu trước
+      await loadLandData();
+      console.log("Đã tải xong dữ liệu, bắt đầu hiển thị");
+      // Sau khi tải xong dữ liệu, hiển thị bản đồ
+      loadAndDisplayData();
+    } catch (error) {
+      console.error("Lỗi trong quá trình khởi tạo:", error);
+      // Vẫn hiển thị dữ liệu mẫu nếu có lỗi
+      loadAndDisplayData();
+    }
   }
 
   // Chạy khi trang web được tải
