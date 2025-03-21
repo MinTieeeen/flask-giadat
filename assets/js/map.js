@@ -907,24 +907,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // 🟢 Tải dữ liệu JSON từ Flask API
   async function loadLandData() {
-    try {
-      console.log("Đang tải dữ liệu từ API...");
-      
-      // Thử tải từ API endpoints trước
-      try {
-        const apiResponse1 = await fetch("/api/land-prices/current");
-        const apiResponse2 = await fetch("/api/land-prices/state");
-        
-        if (apiResponse1.ok && apiResponse2.ok) {
-          console.log("Tải dữ liệu từ API thành công");
-          landDataHienHanh = await apiResponse1.json();
-          landDataNhaNuoc = await apiResponse2.json();
-          return;
-        }
-      } catch (apiError) {
-        console.warn("Không thể tải dữ liệu từ API:", apiError);
-      }
-      
+    try {  
       // Nếu API không thành công, thử tải từ file trực tiếp
       console.log("Thử tải dữ liệu từ file JSON...");
       const response1 = await fetch("data/Bang_gia_dat.json");
