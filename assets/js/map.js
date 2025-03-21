@@ -905,8 +905,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // 🟢 Tải dữ liệu JSON từ Flask API
   async function loadLandData() {
     try {
-      const response1 = await fetch("/data/Bang_gia_dat.json");
-      const response2 = await fetch("/data/Bang_gia_dat_nha_nuoc.json");
+      const response1 = await fetch("data/Bang_gia_dat.json");
+      const response2 = await fetch("data/Bang_gia_dat_nha_nuoc.json");
 
       if (!response1.ok || !response2.ok) {
         throw new Error("Không thể tải dữ liệu!");
