@@ -1295,6 +1295,32 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
+  // Thêm hàm để bật/tắt marker
+  function toggleMarkers() {
+    markerVisible = !markerVisible;
+    
+    if (markerVisible) {
+      markers.addTo(map);
+      if (marker) marker.addTo(map);
+      if (clickMarker) clickMarker.addTo(map);
+      toggleMarkersBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Ẩn marker';
+    } else {
+      markers.removeFrom(map);
+      if (marker) marker.removeFrom(map);
+      if (clickMarker) clickMarker.removeFrom(map);
+      toggleMarkersBtn.innerHTML = '<i class="fas fa-eye"></i> Hiện marker';
+    }
+  }
+
+  // Thêm event listener cho nút toggle markers
+  if (toggleMarkersBtn) {
+    toggleMarkersBtn.addEventListener("click", toggleMarkers);
+    // Cập nhật text ban đầu dựa trên trạng thái
+    toggleMarkersBtn.innerHTML = markerVisible ? 
+      '<i class="fas fa-eye-slash"></i> Ẩn marker' : 
+      '<i class="fas fa-eye"></i> Hiện marker';
+  }
+
   // Chạy khi trang web được tải
   async function init() {
     // Khởi tạo bảng tìm kiếm
